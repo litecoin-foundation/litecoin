@@ -202,6 +202,7 @@ BASE_SCRIPTS = [
     'wallet_txn_clone.py --mineblock',
     'feature_notifications.py',
     'rpc_getblockfilter.py',
+    'rpc_getblockfrompeer.py',
     'rpc_invalidateblock.py',
     'feature_rbf.py',
     'ltc_replacebyfee.py',

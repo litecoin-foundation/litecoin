@@ -152,6 +152,11 @@ struct CNodeStateStats {
     std::vector<int> vHeightInFlight;
 };
 
+/** Attempt to manually fetch block from a given node.
+  * A refactor of in flight block tracking could remove the need for passing CTxMemPool in
+  */
+bool FetchBlock(const NodeId nodeid, const CBlockIndex* pindex, CConnman& connman, CTxMemPool& mempool);
+
 /** Get statistics from node state */
 bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
 

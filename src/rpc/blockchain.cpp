@@ -14,6 +14,8 @@
 #include <core_io.h>
 #include <hash.h>
 #include <index/blockfilterindex.h>
+#include <net.h> // For NodeId
+#include <net_processing.h>
 #include <node/coinstats.h>
 #include <node/context.h>
 #include <node/utxo_snapshot.h>
@@ -749,6 +751,48 @@ static RPCHelpMan getmempoolentry()
     UniValue info(UniValue::VOBJ);
     entryToJSON(mempool, info, e);
     return info;
+},
+    };
+}
+
+static RPCHelpMan getblockfrompeer()
+{
+    return RPCHelpMan{"getblockfrompeer",
+                "\nAttempts to fetch block from a given peer.\n",
+                {
+                    {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
+                    {"nodeid", RPCArg::Type::NUM, RPCArg::Optional::NO, "The node ID (see getpeerinfo for node IDs)"},
+                },
+                RPCResult{RPCResult::Type::NONE, "", ""},
+                RPCExamples{
+                    HelpExampleCli("getblockfrompeer", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\" 0")
+                + HelpExampleRpc("getblockfrompeer", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\" 0")
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    uint256 hash(ParseHashV(request.params[0], "hash"));
+
+    const CBlockIndex* pblockindex;
+    {
+        LOCK(cs_main);
+        pblockindex = LookupBlockIndex(hash);
+    }
+
+    if (!pblockindex) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+    }
+
+    const UniValue &id_arg = request.params[1];
+    const NodeId nodeid = (NodeId) id_arg.get_int64();
+    const NodeContext& node_context = EnsureNodeContext(request.context);
+
+    CTxMemPool& mempool = EnsureMemPool(request.context);
+    LOCK(mempool.cs);
+
+    if (!FetchBlock(nodeid, pblockindex, *node_context.connman, mempool)) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Failed to fetch block from peer");
+    }
+    return NullUniValue;
 },
     };
 }
@@ -2479,6 +2523,7 @@ static const CRPCCommand commands[] =
     { "blockchain",         "getbestblockhash",       &getbestblockhash,       {} },
     { "blockchain",         "getblockcount",          &getblockcount,          {} },
     { "blockchain",         "getblock",               &getblock,               {"blockhash","verbosity|verbose"} },
+    { "blockchain",         "getblockfrompeer",       &getblockfrompeer,       {"blockhash","nodeid"} },
     { "blockchain",         "getblockhash",           &getblockhash,           {"height"} },
     { "blockchain",         "getblockheader",         &getblockheader,         {"blockhash","verbose"} },
     { "blockchain",         "getchaintips",           &getchaintips,           {} },
